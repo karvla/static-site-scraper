@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 import tqdm
+import click
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -47,18 +48,17 @@ async def fetch_bytes(url: str, session: Client) -> Optional[bytes]:
     return response.read()
 
 
-def get_site(base_url: str) -> tuple[dict[str, str], set[str]]:
-    max_pages = 100
+def get_site(base_url: str, page_limit: int) -> tuple[dict[str, str], set[str]]:
     pages: dict[str, str] = {}
     asset_links: set[str] = set()
-    progress_bar = tqdm.tqdm(desc="Scrapting website", unit=" pages")
+    progress_bar = tqdm.tqdm(desc="Scraping website", unit=" pages")
 
     async def recursive_fetch(url: str, session: Client):
         if url in pages:
             return
         progress_bar.refresh()
 
-        if len(pages.keys()) >= max_pages:
+        if len(pages.keys()) >= page_limit:
             return
 
         source = await fetch_document(url, session)
@@ -67,7 +67,7 @@ def get_site(base_url: str) -> tuple[dict[str, str], set[str]]:
         if source is None:
             return
 
-        pages["index.html" if url == base_url else url] = source
+        pages[url] = source
         page = BeautifulSoup(source, "html.parser")
 
         next_links = [
@@ -119,16 +119,30 @@ async def save_all_assets(asset_links: set[str], out_dir: Path, session: Client)
     )
 
 
-if __name__ == "__main__":
-    base_url = sys.argv[1]
-    pages, assets = get_site(base_url)
-    out_path = Path(__file__).parent / "out"
+@click.command()
+@click.argument("url")
+@click.argument("output", type=click.Path(exists=False))
+@click.option("--page-limit", default=200, help="Max number of pages to scrape.")
+@click.option(
+    "--verbose", is_flag=True, default=False, help="Verbose logging to stdout."
+)
+def cli(url, output, page_limit, verbose):
+    if verbose:
+        logger.setLevel(logging.DEBUG)
+    pages, assets = get_site(url, page_limit)
 
-    for url, source in pages.items():
-        path = out_path / urlparse(url).path[1:]
+    out_path = Path(output)
+    for page_url, source in pages.items():
+        path = out_path / urlparse(page_url).path[1:]
+        if path.suffix == "":
+            path /= "index.html"
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
             f.write(source)
 
     with Client() as session:
         asyncio.run(save_all_assets(assets, out_path, session))
+
+
+if __name__ == "__main__":
+    cli()
