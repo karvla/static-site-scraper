@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "static-site-scraper"
+version = "0.1.0"
+description = ""
+authors = ["Arvid Larsson <arvid94@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+beautifulsoup4 = "^4.12.2"
+requests = "^2.31.0"
+httpx = "^0.24.1"
+tqdm = "^4.65.0"
+
+[tool.poetry.dev-dependencies]
+mypy = "^1.4.0"
+black = "^23.3.0"
+types-requests = "^2.31.0"
+types-beautifulsoup4 = "^4.12.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
