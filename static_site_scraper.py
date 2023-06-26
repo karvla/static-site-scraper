@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from httpx import Client
 import asyncio
 import sys
