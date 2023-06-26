@@ -11,8 +11,12 @@ logger.setLevel(level=logging.DEBUG)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
-def get_page_links(page: BeautifulSoup) -> list[str]:
-    return list(set([node["href"] for node in page.find_all(href=True)]))
+def get_document_links(page: BeautifulSoup) -> list[str]:
+    utf8_docs = [
+        node["src"] for node in page.find_all(src=True, attrs={"charset": "utf-8"})
+    ]
+    href_docs = [node["href"] for node in page.find_all(href=True)]
+    return list(set(utf8_docs + href_docs))
 
 
 def get_asset_links(page: BeautifulSoup) -> set[str]:
@@ -43,7 +47,7 @@ def get_site(base_url: str) -> dict[str, str]:
         pages["index.html" if url == base_url else url] = source
         page = BeautifulSoup(source, "html.parser")
 
-        next_links = get_page_links(page)
+        next_links = get_document_links(page)
         next_links = [link for link in next_links if not link.startswith("http")]
         next_links = [urljoin(url, link) for link in next_links]
         asyncio.gather(
