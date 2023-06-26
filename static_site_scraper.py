@@ -84,9 +84,8 @@ def get_site(base_url: str) -> tuple[dict[str, str], set[str]]:
                 ]
             )
         )
-        asyncio.gather(
+        await asyncio.gather(
             *[recursive_fetch(link, session) for link in next_links],
-            return_exceptions=True,
         )
 
     with Client() as session:
