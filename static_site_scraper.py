@@ -6,9 +6,10 @@ from typing import Optional
 from bs4 import BeautifulSoup
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
+import tqdm
 
 logger = logging.getLogger(__name__)
-logger.setLevel(level=logging.DEBUG)
+logger.setLevel(level=logging.INFO)
 logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
@@ -50,15 +51,18 @@ def get_site(base_url: str) -> tuple[dict[str, str], set[str]]:
     max_pages = 100
     pages: dict[str, str] = {}
     asset_links: set[str] = set()
+    progress_bar = tqdm.tqdm(desc="Scrapting website", unit=" pages")
 
     async def recursive_fetch(url: str, session: Client):
         if url in pages:
             return
+        progress_bar.refresh()
 
         if len(pages.keys()) >= max_pages:
             return
 
         source = await fetch_document(url, session)
+        progress_bar.update()
 
         if source is None:
             return
@@ -67,10 +71,10 @@ def get_site(base_url: str) -> tuple[dict[str, str], set[str]]:
         page = BeautifulSoup(source, "html.parser")
 
         next_links = [
-            link for link in get_document_links(page) if not link.startswith("http")
+            urljoin(url, link)
+            for link in get_document_links(page)
+            if not link.startswith("http")
         ]
-        next_links = [urljoin(url, link) for link in next_links]
-
         asset_links.update(
             set(
                 [
@@ -80,7 +84,6 @@ def get_site(base_url: str) -> tuple[dict[str, str], set[str]]:
                 ]
             )
         )
-
         asyncio.gather(
             *[recursive_fetch(link, session) for link in next_links],
             return_exceptions=True,
@@ -93,6 +96,10 @@ def get_site(base_url: str) -> tuple[dict[str, str], set[str]]:
 
 
 async def save_all_assets(asset_links: set[str], out_dir: Path, session: Client):
+    progress_bar = tqdm.tqdm(
+        total=len(asset_links), desc="Downloading assets", unit=" assets"
+    )
+
     async def fetch_and_save_asset(url: str, path: Path, session: Client):
         asset = await fetch_bytes(url, session)
         if asset is None:
@@ -102,6 +109,8 @@ async def save_all_assets(asset_links: set[str], out_dir: Path, session: Client)
         asset_path.parent.mkdir(parents=True, exist_ok=True)
         with open(asset_path, "wb") as f:
             f.write(asset)
+
+        progress_bar.update()
 
     asyncio.gather(
         *[
