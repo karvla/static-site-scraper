@@ -10,8 +10,8 @@ import tqdm
 import click
 
 logger = logging.getLogger(__name__)
-logger.setLevel(level=logging.INFO)
-logger.addHandler(logging.StreamHandler(sys.stdout))
+logger.setLevel(level=logging.DEBUG)
+logger.addHandler(logging.FileHandler(".scrape.log"))
 
 
 def get_document_links(page: BeautifulSoup) -> set[str]:
@@ -128,7 +128,7 @@ async def save_all_assets(asset_links: set[str], out_dir: Path, session: Client)
 )
 def cli(url, output, page_limit, verbose):
     if verbose:
-        logger.setLevel(logging.DEBUG)
+        logger.addHandler(logging.StreamHandler(sys.stdout))
     pages, assets = get_site(url, page_limit)
 
     out_path = Path(output)
